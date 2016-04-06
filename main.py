@@ -73,6 +73,11 @@ class Block(GameObject):
                or self.hit_test_point(test_block.x + test_block.width, test_block.y + test_block.height)
 
 
+class ScrollingBlock(Block):
+    def update(self):
+        self.y += scroll_speed
+
+
 class SerpentBlock(Block):
     def __init__(self, owner=None, parent=None):
         super(SerpentBlock, self).__init__()
@@ -133,33 +138,61 @@ class Serpent(GameObject):
     def add_block(self):
         new_snake = SerpentBlock(self, self.blocks[len(self.blocks) - 1])
         self.blocks.append(new_snake)
-        print("block added")
 
     def add_turn_point(self, dir_x, dir_y):
         self.turn_points.append(dict(x=self.head.x, y=self.head.y, dir_x=dir_x, dir_y=dir_y))
 
 
 # Game Setup
+
+scroll_speed = .5
+
 serpent = Serpent()
 objects = [GameObject(), serpent]
 
+spawn_range = 100
+spawn_time = spawn_range / scroll_speed  # in frames
+spawn_timer = 0
+print(spawn_time)
 collectables = []
 
 for i in range(0, 10):
-    randX = random.randrange(GameWidth)
-    randY = random.randrange(GameHeight)
-    block = Block()
-    block.x = randX
-    block.y = randY
+    range_x = GameWidth/10
+    range_y = GameHeight/10
+    rand_x = random.randrange(range_x)
+    rand_y = random.randrange(range_y)
+    block = ScrollingBlock()
+    block.x = rand_x * 10
+    block.y = rand_y * 10
     collectables.append(block)
     objects.append(block)
 
-# previous_time = 0
-# delta_time = 0
+previous_time = 0
+delta_time = float(0)
+frame_count = 0
 
 # Game Loop
 while True:
+    frame_count += 1
+    delta_time = (pygame.time.get_ticks() - previous_time) / float(1000)
+    previous_time = pygame.time.get_ticks()
+
     display_surface.fill(Color.white())
+
+    spawn_timer += 1
+
+    if spawn_timer >= spawn_time:
+        for i in range(0, 5):
+            range_x = GameWidth/10
+            range_y = spawn_range/10
+            rand_x = random.randrange(range_x)
+            rand_y = -random.randrange(range_y)
+            block = ScrollingBlock()
+            block.x = rand_x * 10
+            block.y = rand_y * 10
+            collectables.append(block)
+            objects.append(block)
+        spawn_timer = 0
 
     for obj in objects:
         obj.update()
@@ -193,5 +226,3 @@ while True:
 
     pygame.display.update()
     clock.tick(FPS)
-    # delta_time = pygame.time.get_ticks() - previous_time
-    # previous_time = pygame.time.get_ticks()
