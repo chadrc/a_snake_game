@@ -249,6 +249,14 @@ class Serpent(GameObject):
     def length(self):
         return len(self.blocks)
 
+    def hit_self(self):
+        child = self.head.follower
+        while child is not None:
+            if self.head.distance_to(child) < 5:
+                return True
+            child = child.follower
+        return False
+
 
 class Game:
     def __init__(self):
@@ -312,7 +320,7 @@ class Game:
 
         game_box = Block(0, 0, GameWidth, GameHeight - 100)
 
-        if not game_box.hit_test_block(self.serpent.head):
+        if not game_box.hit_test_block(self.serpent.head) or self.serpent.hit_self():
             global game_state
             game_state = 'game_over'
 
