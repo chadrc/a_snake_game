@@ -16,7 +16,7 @@ GameWidth = 300
 GameHeight = 650
 
 display_surface = pygame.display.set_mode((GameWidth, GameHeight))
-pygame.display.set_caption('Pyventure')
+pygame.display.set_caption('Python - A snake game')
 
 
 class Color(object):
@@ -270,7 +270,7 @@ class Game:
         self.serpent.head.x = GameWidth/2 - self.serpent.head.width/2
         self.serpent.head.y = GameHeight - 200
 
-        self.speed_increase_per_second = .1
+        self.speed_increase_per_second = .2
         self.objects = [GameObject(), self.serpent]
         self.spawn_range = 100
         self.spawn_time = self.spawn_range / self.scroll_speed
