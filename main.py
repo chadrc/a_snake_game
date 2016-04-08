@@ -37,7 +37,7 @@ class Color(object):
         return 0, 255, 0
 
     @staticmethod
-    def red():
+    def blue():
         return 0, 0, 255
 
 
@@ -54,10 +54,10 @@ class GameObject(object):
 
 
 class Block(GameObject):
-    def __init__(self):
-        super(Block, self).__init__()
-        self.width = 9
-        self.height = 9
+    def __init__(self, x=0, y=0, width=0, height=0):
+        super(Block, self).__init__(x, y)
+        self.width = width
+        self.height = height
 
     def draw(self):
         pygame.draw.rect(display_surface, Color.black(), (self.x, self.y, self.width, self.height))
@@ -86,6 +86,11 @@ class Block(GameObject):
 
 
 class ScrollingBlock(Block):
+    def __init__(self):
+        super(ScrollingBlock, self).__init__()
+        self.width = 9
+        self.height = 9
+
     def update(self):
         self.y += game.scroll_speed * delta_time
 
@@ -93,6 +98,8 @@ class ScrollingBlock(Block):
 class SerpentBlock(Block):
     def __init__(self, owner=None, parent=None):
         super(SerpentBlock, self).__init__()
+        self.width = 9
+        self.height = 9
         self.leader = parent
         self.follower = None
         self.path = collections.deque()
@@ -243,14 +250,6 @@ class Serpent(GameObject):
         return len(self.blocks)
 
 
-def render_text(s, x, y, clr=Color.white()):
-    r_text = main_font.render(s, True, clr)
-    r_text_rect = r_text.get_rect()
-    r_text_rect.centerx = x
-    r_text_rect.centery = y
-    display_surface.blit(r_text, r_text_rect)
-
-
 class Game:
     def __init__(self):
         self.scroll_speed = 10
@@ -312,6 +311,12 @@ class Game:
             obj.update()
             obj.draw()
 
+        game_box = Block(0, 0, GameWidth, GameHeight - 100)
+
+        if not game_box.hit_test_block(self.serpent.head):
+            global game_state
+            game_state = 'game_over'
+
         # Check for serpent collisions with collectables
         to_remove = None
         for col in self.collectibles:
@@ -325,13 +330,30 @@ class Game:
             self.objects.remove(to_remove)
 
         # UI Rendering
+        pygame.draw.rect(display_surface, Color.black(), (0, GameHeight-100, GameWidth, 100))
         display_surface.blit(score_text_label, score_text_label_rect)
         render_text(str(int(self.score)), display_surface.get_rect().centerx, GameHeight - 40)
         render_text("X" + str(self.multiplier), 40, GameHeight - 50)
 
 
+def render_text(s, x, y, clr=Color.white()):
+    r_text = main_font.render(s, True, clr)
+    r_text_rect = r_text.get_rect()
+    r_text_rect.centerx = x
+    r_text_rect.centery = y
+    display_surface.blit(r_text, r_text_rect)
+
+
+def restart():
+    global game, game_state
+    game = Game()
+    game_state = 'playing'
+
+
 # Game Setup
 game = Game()
+
+game_state = 'start'
 
 main_font = pygame.font.SysFont(None, 40)
 score_text_label = main_font.render('Score', True, Color.white())
@@ -352,9 +374,17 @@ while True:
 
     display_surface.fill(Color.white())
 
-    pygame.draw.rect(display_surface, Color.black(), (0, GameHeight-100, GameWidth, 100))
-
-    game.update()
+    if game_state == 'playing':
+        game.update()
+    elif game_state == 'start':
+        render_text("Start", GameWidth/2, GameHeight/2, Color.black())
+        render_text("Press 's' to restart", GameWidth/2, GameHeight/2 + 75, Color.black())
+    elif game_state == 'game_over':
+        display_surface.fill(Color.black())
+        render_text('Game Over', GameWidth/2, GameHeight/2)
+        render_text("Press 's' to restart", GameWidth/2, GameHeight/2 + 75)
+    elif game_state == 'paused':
+        pass
 
     input_timer += delta_time
     for event in pygame.event.get():
@@ -370,6 +400,8 @@ while True:
                 game.serpent.add_turn_point(dir_x=-1, dir_y=0)
             elif event.key == pygame.K_RIGHT and game.serpent.head.dir_x != 1:
                 game.serpent.add_turn_point(dir_x=1, dir_y=0)
+            elif event.key == pygame.K_s and (game_state == 'start' or game_state == 'game_over'):
+                restart()
             input_timer = 0
 
     pygame.display.update()
