@@ -290,7 +290,6 @@ class Game:
         self.scroll_speed += self.speed_increase_per_second * delta_time
 
         # Score Calculation
-        self.multiplier = 1 + (self.serpent.length() / 10.0)
         base_score = self.score_per_second * delta_time
         self.score += base_score * self.multiplier
 
@@ -317,17 +316,23 @@ class Game:
             global game_state
             game_state = 'game_over'
 
-        # Check for serpent collisions with collectables
-        to_remove = None
+        # Check for serpent collisions with collectables and collectibles leaving the play area
+        to_remove = []
         for col in self.collectibles:
-            if col.hit_test_block(self.serpent.head):
-                to_remove = col
-                self.serpent.add_block()
-                break
+            if col.y > game_box.height:
+                to_remove.append(col)
+                self.multiplier = 1.0
+                continue
 
-        if to_remove is not None:
-            self.collectibles.remove(to_remove)
-            self.objects.remove(to_remove)
+            if col.hit_test_block(self.serpent.head):
+                to_remove.append(col)
+                self.serpent.add_block()
+                self.multiplier += .1
+                continue
+
+        for o in to_remove:
+            self.collectibles.remove(o)
+            self.objects.remove(o)
 
         # UI Rendering
         pygame.draw.rect(display_surface, Color.black(), (0, GameHeight-100, GameWidth, 100))
