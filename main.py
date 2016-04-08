@@ -18,6 +18,7 @@ GameHeight = 650
 display_surface = pygame.display.set_mode((GameWidth, GameHeight))
 pygame.display.set_caption('Pyventure')
 
+
 class Color(object):
     @staticmethod
     def black():
@@ -86,7 +87,7 @@ class Block(GameObject):
 
 class ScrollingBlock(Block):
     def update(self):
-        self.y += scroll_speed * delta_time
+        self.y += game.scroll_speed * delta_time
 
 
 class SerpentBlock(Block):
@@ -250,38 +251,87 @@ def render_text(s, x, y, clr=Color.white()):
     display_surface.blit(r_text, r_text_rect)
 
 
+class Game:
+    def __init__(self):
+        self.scroll_speed = 10
+
+        self.serpent_start_blocks = 3
+        self.serpent = Serpent(self.serpent_start_blocks)
+        self.serpent_start_speed = 50
+        self.serpent.speed = self.serpent_start_speed
+        self.serpent.head.dir_y = -1
+        self.serpent.head.x = GameWidth/2 - self.serpent.head.width/2
+        self.serpent.head.y = GameHeight - 200
+
+        self.speed_increase_per_second = .1
+        self.objects = [GameObject(), self.serpent]
+        self.spawn_range = 100
+        self.spawn_time = self.spawn_range / self.scroll_speed
+        self.spawn_timer = 0
+        self.collectibles = []
+
+        for i in range(0, 10):
+            range_x = GameWidth/10
+            range_y = (GameHeight/2)/10
+            rand_x = random.randrange(range_x)
+            rand_y = random.randrange(range_y)
+            block = ScrollingBlock()
+            block.x = rand_x * 10
+            block.y = rand_y * 10
+            self.collectibles.append(block)
+            self.objects.append(block)
+
+        self.score = 0
+        self.multiplier = 1.0
+        self.score_per_second = 1.0
+
+    def update(self):
+        self.spawn_timer += delta_time
+        self.serpent.speed += self.speed_increase_per_second * delta_time
+        self.scroll_speed += self.speed_increase_per_second * delta_time
+
+        # Score Calculation
+        self.multiplier = 1 + (self.serpent.length() / 10.0)
+        base_score = self.score_per_second * delta_time
+        self.score += base_score * self.multiplier
+
+        if self.spawn_timer >= self.spawn_time:
+            for i in range(0, 5):
+                range_x = GameWidth/10
+                range_y = self.spawn_range/10
+                rand_x = random.randrange(range_x)
+                rand_y = -random.randrange(range_y)
+                block = ScrollingBlock()
+                block.x = rand_x * 10
+                block.y = rand_y * 10
+                self.collectibles.append(block)
+                self.objects.append(block)
+            self.spawn_timer = 0
+
+        for obj in self.objects:
+            obj.update()
+            obj.draw()
+
+        # Check for serpent collisions with collectables
+        to_remove = None
+        for col in self.collectibles:
+            if col.hit_test_block(self.serpent.head):
+                to_remove = col
+                self.serpent.add_block()
+                break
+
+        if to_remove is not None:
+            self.collectibles.remove(to_remove)
+            self.objects.remove(to_remove)
+
+        # UI Rendering
+        display_surface.blit(score_text_label, score_text_label_rect)
+        render_text(str(int(self.score)), display_surface.get_rect().centerx, GameHeight - 40)
+        render_text("X" + str(self.multiplier), 40, GameHeight - 50)
+
+
 # Game Setup
-
-scroll_speed = 10  # pixels per second
-
-serpent_start_blocks = 3
-serpent = Serpent(3)
-serpent.speed = 50
-speed_increase_per_second = .1
-objects = [GameObject(), serpent]
-
-spawn_range = 100
-spawn_time = spawn_range / scroll_speed  # in frames
-spawn_timer = 0
-
-input_timer = float(0)
-
-collectables = []
-
-for i in range(0, 10):
-    range_x = GameWidth/10
-    range_y = GameHeight/10
-    rand_x = random.randrange(range_x)
-    rand_y = random.randrange(range_y)
-    block = ScrollingBlock()
-    block.x = rand_x * 10
-    block.y = rand_y * 10
-    collectables.append(block)
-    objects.append(block)
-
-previous_time = 0
-delta_time = float(0)
-frame_count = 0
+game = Game()
 
 main_font = pygame.font.SysFont(None, 40)
 score_text_label = main_font.render('Score', True, Color.white())
@@ -289,9 +339,10 @@ score_text_label_rect = score_text_label.get_rect()
 score_text_label_rect.centerx = display_surface.get_rect().centerx
 score_text_label_rect.centery = GameHeight - 75
 
-score = float(0)
-multiplier = serpent_start_blocks / 10.0
-score_per_second = 1
+input_timer = float(0)
+previous_time = 0
+delta_time = float(0)
+frame_count = 0
 
 # Game Loop
 while True:
@@ -303,48 +354,7 @@ while True:
 
     pygame.draw.rect(display_surface, Color.black(), (0, GameHeight-100, GameWidth, 100))
 
-    spawn_timer += delta_time
-    serpent.speed += speed_increase_per_second * delta_time
-    scroll_speed += speed_increase_per_second * delta_time
-
-    # Score Calculation
-    multiplier = 1 + (serpent.length() / 10.0)
-    base_score = score_per_second * delta_time
-    score += base_score * multiplier
-
-    if spawn_timer >= spawn_time:
-        for i in range(0, 5):
-            range_x = GameWidth/10
-            range_y = spawn_range/10
-            rand_x = random.randrange(range_x)
-            rand_y = -random.randrange(range_y)
-            block = ScrollingBlock()
-            block.x = rand_x * 10
-            block.y = rand_y * 10
-            collectables.append(block)
-            objects.append(block)
-        spawn_timer = 0
-
-    for obj in objects:
-        obj.update()
-        obj.draw()
-
-    # UI Rendering
-    display_surface.blit(score_text_label, score_text_label_rect)
-    render_text(str(int(score)), display_surface.get_rect().centerx, GameHeight - 40)
-    render_text("X" + str(multiplier), 40, GameHeight - 50)
-
-    # Check for serpent collisions with collectables
-    to_remove = None
-    for col in collectables:
-        if col.hit_test_block(serpent.head):
-            to_remove = col
-            serpent.add_block()
-            break
-
-    if to_remove is not None:
-        collectables.remove(to_remove)
-        objects.remove(to_remove)
+    game.update()
 
     input_timer += delta_time
     for event in pygame.event.get():
@@ -352,14 +362,14 @@ while True:
             pygame.quit()
             sys.exit()
         elif input_timer >= .3 and event.type == KEYDOWN:
-            if event.key == pygame.K_UP and serpent.head.dir_y != -1:
-                serpent.add_turn_point(dir_x=0, dir_y=-1)
-            elif event.key == pygame.K_DOWN and serpent.head.dir_y != 1:
-                serpent.add_turn_point(dir_x=0, dir_y=1)
-            elif event.key == pygame.K_LEFT and serpent.head.dir_x != -1:
-                serpent.add_turn_point(dir_x=-1, dir_y=0)
-            elif event.key == pygame.K_RIGHT and serpent.head.dir_x != 1:
-                serpent.add_turn_point(dir_x=1, dir_y=0)
+            if event.key == pygame.K_UP and game.serpent.head.dir_y != -1:
+                game.serpent.add_turn_point(dir_x=0, dir_y=-1)
+            elif event.key == pygame.K_DOWN and game.serpent.head.dir_y != 1:
+                game.serpent.add_turn_point(dir_x=0, dir_y=1)
+            elif event.key == pygame.K_LEFT and game.serpent.head.dir_x != -1:
+                game.serpent.add_turn_point(dir_x=-1, dir_y=0)
+            elif event.key == pygame.K_RIGHT and game.serpent.head.dir_x != 1:
+                game.serpent.add_turn_point(dir_x=1, dir_y=0)
             input_timer = 0
 
     pygame.display.update()
