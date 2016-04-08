@@ -164,7 +164,6 @@ class SerpentBlock(Block):
             old_dir_y = self.follower.dir_y
             self.follower.move(child_x, child_y)
             if self.follower.dir_x != old_dir_x or self.follower.dir_y != old_dir_y:
-                print('Child turn')
                 self.follower.lasttp = lasttp
             self.follower.move_child()
 
@@ -212,7 +211,7 @@ class SerpentBlock(Block):
 
 
 class Serpent(GameObject):
-    def __init__(self):
+    def __init__(self, start_blocks):
         super(Serpent, self).__init__()
         self.speed = .2
         self.turn_points = []
@@ -220,7 +219,7 @@ class Serpent(GameObject):
         self.head = SerpentBlock(self)
         self.head.dir_y = 1
         self.blocks.append(self.head)
-        for i in range(0, 2):
+        for i in range(0, start_blocks-1):
             self.add_block()
 
     def draw(self):
@@ -239,13 +238,26 @@ class Serpent(GameObject):
                                      from_dir_x=self.head.dir_x, from_dir_y=self.head.dir_y))
         self.head.turn(dir_x, dir_y)
 
+    def length(self):
+        return len(self.blocks)
+
+
+def render_text(s, x, y, clr=Color.white()):
+    r_text = main_font.render(s, True, clr)
+    r_text_rect = r_text.get_rect()
+    r_text_rect.centerx = x
+    r_text_rect.centery = y
+    display_surface.blit(r_text, r_text_rect)
+
 
 # Game Setup
 
 scroll_speed = 10  # pixels per second
 
-serpent = Serpent()
+serpent_start_blocks = 3
+serpent = Serpent(3)
 serpent.speed = 50
+speed_increase_per_second = .1
 objects = [GameObject(), serpent]
 
 spawn_range = 100
@@ -271,6 +283,16 @@ previous_time = 0
 delta_time = float(0)
 frame_count = 0
 
+main_font = pygame.font.SysFont(None, 40)
+score_text_label = main_font.render('Score', True, Color.white())
+score_text_label_rect = score_text_label.get_rect()
+score_text_label_rect.centerx = display_surface.get_rect().centerx
+score_text_label_rect.centery = GameHeight - 75
+
+score = float(0)
+multiplier = serpent_start_blocks / 10.0
+score_per_second = 1
+
 # Game Loop
 while True:
     frame_count += 1
@@ -279,7 +301,16 @@ while True:
 
     display_surface.fill(Color.white())
 
+    pygame.draw.rect(display_surface, Color.black(), (0, GameHeight-100, GameWidth, 100))
+
     spawn_timer += delta_time
+    serpent.speed += speed_increase_per_second * delta_time
+    scroll_speed += speed_increase_per_second * delta_time
+
+    # Score Calculation
+    multiplier = 1 + (serpent.length() / 10.0)
+    base_score = score_per_second * delta_time
+    score += base_score * multiplier
 
     if spawn_timer >= spawn_time:
         for i in range(0, 5):
@@ -297,6 +328,11 @@ while True:
     for obj in objects:
         obj.update()
         obj.draw()
+
+    # UI Rendering
+    display_surface.blit(score_text_label, score_text_label_rect)
+    render_text(str(int(score)), display_surface.get_rect().centerx, GameHeight - 40)
+    render_text("X" + str(multiplier), 40, GameHeight - 50)
 
     # Check for serpent collisions with collectables
     to_remove = None
