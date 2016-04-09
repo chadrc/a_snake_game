@@ -2,7 +2,6 @@ import sys
 import pygame
 import random
 import math
-import collections
 from pygame.locals import *
 
 __author__ = 'Chad Collins'
@@ -96,84 +95,22 @@ class ScrollingBlock(Block):
 
 
 class SerpentBlock(Block):
-    def __init__(self, owner=None, parent=None):
+    def __init__(self, lead):
         super(SerpentBlock, self).__init__()
         self.width = 9
         self.height = 9
-        self.leader = parent
         self.follower = None
-        self.path = collections.deque()
-        if parent is None:
-            self.x = 100
-            self.y = 100
-            self.dir_x = 0
-            self.dir_y = 0
-            self.turn_count = 0
-        else:
-            self.leader.follower = self
-            self.x = parent.x
-            if self.leader.dir_x != 0:
-                self.x = parent.x + (self.leader.width+1) * -self.leader.dir_x
-            self.y = parent.y
-            if self.leader.dir_y != 0:
-                self.y += (self.leader.height+1) * -self.leader.dir_y
-            self.dir_x = self.leader.dir_x
-            self.dir_y = self.leader.dir_y
-            self.turn_count = parent.turn_count
+        self.last_turn_point = None
 
-        self.lasttp = None
-        self.last_x = self.x
-        self.last_y = self.y
-        self.owner = owner
-
-    def turn(self, dir_x, dir_y):
-        self.dir_x = dir_x
-        self.dir_y = dir_y
-        self.turn_count += 1
-        if self.leader is not None:
-            self.x = self.leader.x
-            if self.leader.dir_x != 0:
-                self.x = self.leader.x + (self.leader.width+1) * -self.leader.dir_x
-            self.y = self.leader.y
-            if self.leader.dir_y != 0:
-                self.y += (self.leader.height+1) * -self.leader.dir_y
-
-    def update(self):
-        self.last_x = self.x
-        self.last_y = self.y
-
-        # if self.turn_count < len(self.owner.turn_points):
-        #     turn_point = self.owner.turn_points[self.turn_count]
-        #     if self.dir_x == -1 and self.x <= turn_point['x'] or \
-        #         self.dir_x == 1 and self.x >= turn_point['x'] or \
-        #         self.dir_y == -1 and self.y <= turn_point['y'] or \
-        #         self.dir_y == 1 and self.y >= turn_point['y']:
-        #         self.turn(turn_point['dir_x'], turn_point['dir_y'])
-        self.x += self.dir_x * float(self.owner.speed) * delta_time
-        self.y += self.dir_y * float(self.owner.speed) * delta_time
-
-        lasttp = None if self.turn_count == 0 or self.turn_count-1 >= len(self.owner.turn_points) \
-            else self.owner.turn_points[self.turn_count-1]
-        dist = 0 if lasttp is None else self.distance_to_point(lasttp['x'], lasttp['y'])
-        if lasttp is None or dist >= 10:
-            child_x = self.x + ((self.width+1) * -self.dir_x)
-            child_y = self.y + ((self.height+1) * -self.dir_y)
-        else:
-            x_dif = self.x - lasttp['x']
-            y_dif = self.y - lasttp['y']
-            child_x = -x_dif + (10 - math.fabs(y_dif)) * -lasttp['from_dir_x']
-            child_y = -y_dif + (10 - math.fabs(x_dif)) * -lasttp['from_dir_y']
-            child_x += self.x
-            child_y += self.y
-
-        if self.follower is not None:
-            # self.follower.update()
-            old_dir_x = self.follower.dir_x
-            old_dir_y = self.follower.dir_y
-            self.follower.move(child_x, child_y)
-            if self.follower.dir_x != old_dir_x or self.follower.dir_y != old_dir_y:
-                self.follower.lasttp = lasttp
-            self.follower.move_child()
+        lead.follower = self
+        self.x = lead.x
+        if lead.dir_x != 0:
+            self.x = lead.x + (lead.width + 1) * -lead.dir_x
+        self.y = lead.y
+        if lead.dir_y != 0:
+            self.y += (lead.height+1) * -lead.dir_y
+        self.dir_x = lead.dir_x
+        self.dir_y = lead.dir_y
 
     def move(self, x, y):
         dif_x = self.x - x
@@ -197,15 +134,17 @@ class SerpentBlock(Block):
         self.y = y
 
     def move_child(self):
-        dist = 0 if self.lasttp is None else self.distance_to_point(self.lasttp['x'], self.lasttp['y'])
-        if self.lasttp is None or dist >= 10:
+        dist = 0 if self.last_turn_point is None else \
+            self.distance_to_point(self.last_turn_point['x'], self.last_turn_point['y'])
+
+        if self.last_turn_point is None or dist >= 10:
             child_x = self.x + ((self.width+1) * -self.dir_x)
             child_y = self.y + ((self.height+1) * -self.dir_y)
         else:
-            x_dif = self.x - self.lasttp['x']
-            y_dif = self.y - self.lasttp['y']
-            child_x = -x_dif + (10 - math.fabs(y_dif)) * -self.lasttp['from_dir_x']
-            child_y = -y_dif + (10 - math.fabs(x_dif)) * -self.lasttp['from_dir_y']
+            x_dif = self.x - self.last_turn_point['x']
+            y_dif = self.y - self.last_turn_point['y']
+            child_x = -x_dif + (10 - math.fabs(y_dif)) * -self.last_turn_point['from_dir_x']
+            child_y = -y_dif + (10 - math.fabs(x_dif)) * -self.last_turn_point['from_dir_y']
             child_x += self.x
             child_y += self.y
 
@@ -214,7 +153,56 @@ class SerpentBlock(Block):
             old_dir_y = self.follower.dir_y
             self.follower.move(child_x, child_y)
             if self.follower.dir_x != old_dir_x or self.follower.dir_y != old_dir_y:
-                self.follower.lasttp = self.lasttp
+                self.follower.last_turn_point = self.last_turn_point
+            self.follower.move_child()
+
+
+class SerpentHead(Block):
+    def __init__(self, owner):
+        super(SerpentHead, self).__init__()
+        self.width = 9
+        self.height = 9
+        self.follower = None
+        self.owner = owner
+        self.dir_x = 0
+        self.dir_y = 0
+        self.turn_count = 0
+        self.last_x = self.x
+        self.last_y = self.y
+
+    def turn(self, dir_x, dir_y):
+        self.dir_x = dir_x
+        self.dir_y = dir_y
+        self.turn_count += 1
+
+    def update(self):
+        self.last_x = self.x
+        self.last_y = self.y
+
+        self.x += self.dir_x * float(self.owner.speed) * delta_time
+        self.y += self.dir_y * float(self.owner.speed) * delta_time
+
+        last_turn_point = None if self.turn_count == 0 or self.turn_count - 1 >= len(self.owner.turn_points) \
+            else self.owner.turn_points[self.turn_count - 1]
+
+        dist = 0 if last_turn_point is None else self.distance_to_point(last_turn_point['x'], last_turn_point['y'])
+        if last_turn_point is None or dist >= 10:
+            child_x = self.x + ((self.width + 1) * -self.dir_x)
+            child_y = self.y + ((self.height + 1) * -self.dir_y)
+        else:
+            x_dif = self.x - last_turn_point['x']
+            y_dif = self.y - last_turn_point['y']
+            child_x = -x_dif + (10 - math.fabs(y_dif)) * -last_turn_point['from_dir_x']
+            child_y = -y_dif + (10 - math.fabs(x_dif)) * -last_turn_point['from_dir_y']
+            child_x += self.x
+            child_y += self.y
+
+        if self.follower is not None:
+            old_dir_x = self.follower.dir_x
+            old_dir_y = self.follower.dir_y
+            self.follower.move(child_x, child_y)
+            if self.follower.dir_x != old_dir_x or self.follower.dir_y != old_dir_y:
+                self.follower.last_turn_point = last_turn_point
             self.follower.move_child()
 
 
@@ -224,7 +212,7 @@ class Serpent(GameObject):
         self.speed = .2
         self.turn_points = []
         self.blocks = []
-        self.head = SerpentBlock(self)
+        self.head = SerpentHead(self)
         self.head.dir_y = 1
         self.blocks.append(self.head)
         for i in range(0, start_blocks-1):
@@ -238,7 +226,7 @@ class Serpent(GameObject):
         self.head.update()
 
     def add_block(self):
-        new_snake = SerpentBlock(self, self.blocks[len(self.blocks) - 1])
+        new_snake = SerpentBlock(self.blocks[len(self.blocks) - 1])
         self.blocks.append(new_snake)
 
     def add_turn_point(self, dir_x, dir_y):
